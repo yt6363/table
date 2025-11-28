@@ -7,12 +7,17 @@ import type {
   Location,
   PlanetPosition,
   ActiveSector,
+  PlanetDignity,
 } from "../types";
 import {
   fetchPlanetaryData,
   getCacheStats,
   clearCache,
   formatDateTime,
+  getSectorsForPlanet,
+  getSectorsForSign,
+  getOwnedSigns,
+  getAspectedSigns,
 } from "../lib/sectors";
 import type { AyanamsaType } from "../contexts/AyanamsaContext";
 
@@ -49,6 +54,37 @@ const StatCard = ({
   </div>
 );
 
+const DignityBadge = ({ dignity }: { dignity: PlanetDignity }) => {
+    let colorClass = "bg-zinc-800 text-zinc-400 border-zinc-700";
+    let label = "Neutral";
+
+    switch (dignity) {
+        case 'exalted':
+            colorClass = "bg-purple-900/30 text-purple-300 border-purple-800/50 shadow-[0_0_8px_rgba(168,85,247,0.3)]";
+            label = "Exalted";
+            break;
+        case 'own_sign':
+            colorClass = "bg-emerald-900/30 text-emerald-300 border-emerald-800/50";
+            label = "Own Sign";
+            break;
+        case 'debilitated':
+            colorClass = "bg-red-900/30 text-red-300 border-red-800/50";
+            label = "Debilitated";
+            break;
+        case 'n/a':
+            label = "—";
+            break;
+    }
+
+    if (label === "—") return null;
+
+    return (
+        <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${colorClass}`}>
+            {label}
+        </span>
+    );
+};
+
 // --- Main Dashboard Component ---
 
 export function SectorsDashboard() {
@@ -70,8 +106,9 @@ export function SectorsDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [selectedPlanet, setSelectedPlanet] = useState<PlanetPosition | null>(null);
-  const [selectedSector, setSelectedSector] = useState<ActiveSector | null>(null);
+  const [selectedSign, setSelectedSign] = useState<string | null>(null);
   const [cacheVersion, setCacheVersion] = useState(0); 
+  const [chartType, setChartType] = useState<'diamond' | 'circle'>('diamond');
 
   // Fetch Logic
   const fetchData = useCallback(
@@ -135,14 +172,12 @@ export function SectorsDashboard() {
   // Interaction Handlers
   const handlePlanetClick = (planet: PlanetPosition) => {
     setSelectedPlanet(planet);
-    const relatedSector = activeSectors.find((s) => s.planet === planet.name);
-    if (relatedSector) setSelectedSector(relatedSector);
+    setSelectedSign(planet.sign);
   };
 
-  const handleSectorClick = (sector: ActiveSector) => {
-    setSelectedSector(sector);
-    const relatedPlanet = planets.find((p) => p.name === sector.planet);
-    if (relatedPlanet) setSelectedPlanet(relatedPlanet);
+  const handleSignClick = (sign: string) => {
+    setSelectedSign(sign);
+    setSelectedPlanet(null);
   };
 
   const handleClearCache = () => {
@@ -159,8 +194,16 @@ export function SectorsDashboard() {
   // Use first 3 sectors as "Prime Focus" highlight
   const topSectors = sortedSectors.slice(0, 3);
 
+  // Get specific lists for selected items
+  const selectedPlanetSectors = selectedPlanet ? getSectorsForPlanet(selectedPlanet.name) : [];
+  const selectedSignSectors = selectedSign ? getSectorsForSign(selectedSign) : [];
+
+  // Calculate Relationship Highlights (Ownership, Aspect)
+  const ownedSigns = selectedPlanet ? getOwnedSigns(selectedPlanet.name) : [];
+  const aspectedSigns = (selectedPlanet && selectedSign) ? getAspectedSigns(selectedPlanet.name, selectedSign) : [];
+
   return (
-    <div className="grid gap-6 lg:grid-cols-12">
+    <div className="grid h-full gap-4 lg:grid-cols-12 lg:gap-6">
       {/* LEFT COLUMN: Controls & Stats */}
       <div className="flex flex-col gap-6 lg:col-span-4 xl:col-span-3">
         <Pane title="Mission Control" className="h-full">
@@ -219,139 +262,171 @@ export function SectorsDashboard() {
 
       {/* MIDDLE COLUMN: Visualization */}
       <div className="lg:col-span-8 xl:col-span-6">
-        <Pane title="Zodiac Radar" className="h-full min-h-[500px]">
+        <Pane 
+          title="Vedic Radar" 
+          className="h-full min-h-[500px]"
+        >
           <div className="relative flex h-full flex-col bg-zinc-950/50 p-1">
              {/* Header Overlay */}
-            <div className="absolute left-0 top-0 z-10 flex w-full justify-between p-4 font-mono text-[10px] uppercase tracking-widest text-zinc-600">
+            <div className="flex w-full justify-between p-4 font-mono text-[10px] uppercase tracking-widest text-zinc-600 border-b border-zinc-900/30">
                <span>{location.name}</span>
                <span>{formatDateTime(date)}</span>
             </div>
 
             {/* Graphic */}
             <div className="flex flex-1 items-center justify-center overflow-hidden py-8">
-               <ZodiacWheel
-                  planets={planets}
-                  activeSectors={activeSectors}
-                  selectedPlanet={selectedPlanet?.name}
-                  selectedSector={selectedSector}
-                  onPlanetClick={handlePlanetClick}
-                  onSectorClick={handleSectorClick}
-                />
+                 <ZodiacWheel
+                    planets={planets}
+                    activeSectors={activeSectors}
+                    selectedPlanet={selectedPlanet?.name}
+                    selectedSign={selectedSign}
+                    onPlanetClick={handlePlanetClick}
+                    onSignClick={handleSignClick}
+                    highlightedSigns={{
+                        placed: selectedPlanet?.sign || null,
+                        owned: ownedSigns,
+                        aspected: aspectedSigns
+                    }}
+                    variant={chartType}
+                  />
             </div>
-
-            {/* Quick Stats Footer */}
-            {topSectors.length > 0 && (
-              <div className="border-t border-zinc-900 bg-black/40 p-3">
-                 <div className="mb-2 text-[9px] uppercase tracking-widest text-zinc-500">Global Market Leaders</div>
-                 <div className="flex flex-wrap gap-2">
-                    {topSectors.slice(0, 5).flatMap(s => s.industries.slice(0, 1)).map((industry, i) => (
-                        <span key={i} className="rounded-full border border-emerald-900/50 bg-emerald-950/20 px-2 py-1 font-mono text-[10px] text-emerald-400">
-                            {industry}
-                        </span>
-                    ))}
-                 </div>
-              </div>
-            )}
+            
+             {/* Footer Controls */}
+            <div className="flex justify-end p-3 border-t border-zinc-900/30 bg-black/10">
+                 <div className="flex gap-1">
+                    <button 
+                      onClick={() => setChartType('diamond')}
+                      title="Diamond Chart (North Indian)"
+                      className={`flex h-6 w-6 items-center justify-center rounded-sm border text-[9px] font-bold transition-all ${chartType === 'diamond' ? 'border-emerald-500/50 bg-emerald-900/30 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'border-zinc-800 bg-black/40 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'}`}
+                    >
+                      D
+                    </button>
+                    <button 
+                      onClick={() => setChartType('circle')}
+                      title="Circular Chart (South/Western)"
+                      className={`flex h-6 w-6 items-center justify-center rounded-sm border text-[9px] font-bold transition-all ${chartType === 'circle' ? 'border-emerald-500/50 bg-emerald-900/30 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'border-zinc-800 bg-black/40 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'}`}
+                    >
+                      C
+                    </button>
+                  </div>
+            </div>
           </div>
         </Pane>
       </div>
 
       {/* RIGHT COLUMN: Details */}
-      <div className="lg:col-span-12 xl:col-span-3 grid gap-6 md:grid-cols-2 xl:grid-cols-1">
+      <div className="lg:col-span-12 xl:col-span-3 flex flex-col gap-6">
         
-        {/* Selected Object Detail */}
-        <Pane title="Telemetry" className="min-h-[300px]">
-          <div className="p-4">
-            {selectedPlanet ? (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="mb-6 flex items-center justify-between border-b border-zinc-800 pb-4">
-                    <div>
-                        <h3 className="font-mono text-2xl text-emerald-400">{selectedPlanet.name}</h3>
-                        <p className="font-mono text-xs text-zinc-500">{selectedPlanet.sign}</p>
+        {/* Selected Object Detail Pane */}
+        <Pane title="Details" className="h-full min-h-[300px]">
+          <div className="p-4 h-full">
+            {selectedPlanet || selectedSign ? (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+                
+                {/* 1. PLANET DETAILS (If selected) */}
+                {selectedPlanet && (
+                  <div className="border-b border-zinc-800 pb-6">
+                    <div className="mb-3 flex items-center justify-between">
+                        <div>
+                            <h3 className="font-mono text-2xl text-emerald-400">{selectedPlanet.name}</h3>
+                            <div className="mt-1 flex gap-2">
+                                <DignityBadge dignity={selectedPlanet.dignity} />
+                            </div>
+                        </div>
+                        <div className={`rounded-sm px-2 py-1 text-[10px] uppercase tracking-wider ${selectedPlanet.retrograde ? 'bg-red-900/30 text-red-400 border border-red-900/50' : 'bg-zinc-900 text-zinc-400'}`}>
+                            {selectedPlanet.retrograde ? "Retrograde" : "Direct"}
+                        </div>
                     </div>
-                    <div className={`rounded-sm px-2 py-1 text-[10px] uppercase tracking-wider ${selectedPlanet.retrograde ? 'bg-red-900/30 text-red-400 border border-red-900/50' : 'bg-zinc-900 text-zinc-400'}`}>
-                        {selectedPlanet.retrograde ? "Retrograde" : "Direct"}
+                    
+                    {/* Vedic Relationships */}
+                    <div className="mb-4 space-y-2 rounded bg-zinc-900/30 p-2 font-mono text-[10px]">
+                        <div className="flex items-start gap-2">
+                            <span className="w-16 text-zinc-500 uppercase">Placed In</span>
+                            <span className="text-emerald-400 font-bold">{selectedPlanet.sign}</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="w-16 text-zinc-500 uppercase">Owns</span>
+                            <span className="text-green-400/90">{ownedSigns.join(", ") || "None"}</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="w-16 text-zinc-500 uppercase">Aspects</span>
+                            <span className="text-orange-400">{aspectedSigns.join(", ") || "None"}</span>
+                        </div>
                     </div>
-                </div>
 
-                <div className="space-y-4 font-mono text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-zinc-500">Longitude</span>
-                    <span className="text-zinc-200">{selectedPlanet.longitude.toFixed(2)}°</span>
+                    <div className="mb-4 grid grid-cols-2 gap-4 font-mono text-xs">
+                         <div>
+                            <span className="block text-[9px] text-zinc-600">Longitude</span>
+                            <span className="text-zinc-300">{selectedPlanet.longitude.toFixed(2)}°</span>
+                         </div>
+                         <div>
+                            <span className="block text-[9px] text-zinc-600">Nakshatra</span>
+                            <div className="flex flex-col">
+                                <span className="text-amber-200">{selectedPlanet.nakshatra || "—"}</span>
+                                {selectedPlanet.nakshatraLord && (
+                                    <span className="text-[9px] text-zinc-500">Lord: {selectedPlanet.nakshatraLord}</span>
+                                )}
+                            </div>
+                         </div>
+                    </div>
+
+                    <div className="space-y-3">
+                       <div>
+                           <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-zinc-500">Planet Sectors</p>
+                           <div className="flex flex-wrap gap-1.5">
+                            {selectedPlanetSectors.map((ind, i) => (
+                                <span key={i} className="inline-block rounded-sm bg-emerald-950/30 border border-emerald-900/30 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                                    {ind}
+                                </span>
+                            ))}
+                            {selectedPlanetSectors.length === 0 && <span className="text-[10px] text-zinc-600 italic">No specific sector data</span>}
+                           </div>
+                       </div>
+                       
+                       {selectedPlanet.commodities.length > 0 && (
+                           <div>
+                               <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-zinc-500">Nakshatra Commodities</p>
+                               <div className="flex flex-wrap gap-1.5">
+                                {selectedPlanet.commodities.map((ind, i) => (
+                                    <span key={i} className="inline-block rounded-sm bg-amber-950/20 border border-amber-900/30 px-1.5 py-0.5 text-[10px] text-amber-300">
+                                        {ind}
+                                    </span>
+                                ))}
+                               </div>
+                           </div>
+                       )}
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-500">Nakshatra</span>
-                    <span className="text-amber-200">{selectedPlanet.nakshatra || "Unknown"}</span>
-                  </div>
-                  
-                  {/* Sectors for specific planet */}
-                  <div className="mt-4 pt-4 border-t border-zinc-800">
-                    <span className="mb-2 block text-[10px] uppercase tracking-widest text-zinc-500">Impacted Sectors</span>
+                )}
+
+                {/* 2. SIGN DETAILS (If selected or implicit from planet) */}
+                {selectedSign && (
+                  <div>
+                    <div className="mb-3">
+                         <h3 className="font-mono text-xl text-zinc-200">{selectedSign}</h3>
+                         <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Sign Environment</p>
+                    </div>
+
                     <div className="flex flex-wrap gap-1.5">
-                       {selectedSector?.industries.map((ind, i) => (
+                       {selectedSignSectors.map((ind, i) => (
                            <span key={i} className="inline-block rounded-sm bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-300">
                                {ind}
                            </span>
                        ))}
-                       {!selectedSector && <span className="text-zinc-600 italic">None detected</span>}
+                       {selectedSignSectors.length === 0 && <span className="text-[10px] text-zinc-600 italic">No specific sector data</span>}
                     </div>
                   </div>
-                </div>
+                )}
+
               </div>
             ) : (
-              <div className="flex h-[200px] flex-col items-center justify-center text-center opacity-40">
+              <div className="flex h-full flex-col items-center justify-center text-center opacity-40 min-h-[250px]">
                  <div className="h-12 w-12 rounded-full border-2 border-dashed border-zinc-600 mb-4" />
-                 <p className="font-mono text-xs uppercase tracking-widest text-zinc-500">No Signal Acquired</p>
-                 <p className="text-[10px] text-zinc-600 mt-2">Select a planet on the radar</p>
+                 <p className="font-mono text-xs uppercase tracking-widest text-zinc-500">No Selection</p>
+                 <p className="text-[10px] text-zinc-600 mt-2">Select a planet or sign on the radar</p>
               </div>
             )}
           </div>
-        </Pane>
-
-        {/* Active Sectors List */}
-        <Pane title="Market Analysis" className="flex-1">
-          {sortedSectors.length > 0 ? (
-            <div className="scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent max-h-[400px] overflow-y-auto p-2">
-              <div className="space-y-2">
-                {sortedSectors.map((sector, idx) => {
-                   const isSelected = selectedSector === sector;
-                   return (
-                      <button
-                        key={`${sector.planet}-${sector.sign}-${idx}`}
-                        onClick={() => handleSectorClick(sector)}
-                        className={`group flex w-full flex-col gap-2 border border-zinc-900/50 p-3 text-left transition-all ${
-                            isSelected 
-                            ? "bg-zinc-800/80 border-emerald-500/50 shadow-lg shadow-emerald-900/10" 
-                            : "bg-black/40 hover:bg-zinc-900/60"
-                        }`}
-                      >
-                        <div className="flex w-full items-center justify-between">
-                            <div className={`font-mono text-xs font-bold uppercase tracking-wider ${isSelected ? "text-emerald-400" : "text-zinc-400 group-hover:text-emerald-300"}`}>
-                                {sector.planet}
-                            </div>
-                            <div className="text-[10px] text-zinc-600">in {sector.sign}</div>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-1">
-                            {sector.industries.slice(0, 4).map((ind, i) => (
-                                <span key={i} className={`text-[10px] ${isSelected ? "text-zinc-300" : "text-zinc-500 group-hover:text-zinc-400"}`}>
-                                    {ind}{i < Math.min(3, sector.industries.length -1) ? " • " : ""}
-                                </span>
-                            ))}
-                            {sector.industries.length > 4 && (
-                                <span className="text-[10px] text-zinc-600 italic">+{sector.industries.length - 4} more</span>
-                            )}
-                        </div>
-                      </button>
-                   );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="flex h-32 items-center justify-center p-4 text-center font-mono text-[10px] uppercase tracking-widest text-zinc-700">
-              No active sectors detected
-            </div>
-          )}
         </Pane>
       </div>
     </div>

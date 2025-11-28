@@ -5,6 +5,8 @@ export interface Location {
   name: string;
 }
 
+export type PlanetDignity = 'exalted' | 'own_sign' | 'debilitated' | 'neutral' | 'n/a';
+
 export interface PlanetPosition {
   name: string;
   longitude: number;
@@ -13,7 +15,10 @@ export interface PlanetPosition {
   speed: number;
   retrograde: boolean;
   nakshatra?: string;
+  nakshatraLord?: string; // Ruling planet of the nakshatra
   pada?: number;
+  dignity: PlanetDignity;
+  commodities: string[]; // Specific commodities based on Nakshatra
 }
 
 export interface ActiveSector {

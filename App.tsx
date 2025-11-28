@@ -5,9 +5,9 @@ import { SectorsDashboard } from './components/SectorsDashboard';
 const App = () => {
   return (
     <AyanamsaProvider>
-      <div className="min-h-screen bg-[#050505] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-[#050505] to-black text-zinc-300 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+      <div className="flex min-h-screen flex-col bg-[#050505] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-[#050505] to-black text-zinc-300 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
         <header className="sticky top-0 z-50 border-b border-zinc-800 bg-black/50 backdrop-blur-md">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex w-full items-center justify-between px-4 py-3 sm:px-6 lg:px-6">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               <h1 className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-zinc-100">
@@ -20,7 +20,7 @@ const App = () => {
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="flex flex-1 flex-col w-full p-4 lg:p-6">
           <SectorsDashboard />
         </main>
       </div>

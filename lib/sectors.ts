@@ -1,4 +1,4 @@
-import { PlanetPosition, ActiveSector, PlanetaryResponse } from "../types";
+import { PlanetPosition, ActiveSector, PlanetaryResponse, PlanetDignity } from "../types";
 import { AyanamsaType } from "../contexts/AyanamsaContext";
 
 // --- Mappings provided by user ---
@@ -33,13 +33,138 @@ const SIGN_SECTORS: Record<string, string[]> = {
   "Pisces": ["Fishing", "Wax", "Perfumes", "Diamonds", "Pearls", "Pharma"]
 };
 
+const NAKSHATRA_COMMODITIES: Record<string, string[]> = {
+  "Ashwini": ["Rice", "Wool", "Iron", "Copper"],
+  "Bharani": ["Wheat", "Rice", "Chillies", "Edible Oils"],
+  "Krittika": ["Rice", "Sesame", "Barley", "Oilseeds", "Oil", "Gold", "Silver"],
+  "Rohini": ["Cotton Cloth", "Silver", "Gold", "Silver"],
+  "Mrigashira": ["Food Grains", "Pulses"],
+  "Ardra": ["Oils"],
+  "Punarvasu": ["Gold", "Cotton", "Millets"],
+  "Pushya": ["Gold", "Silver", "Edible Oils"],
+  "Ashlesha": ["Wheat", "Sugar", "Ginger", "Chillies"],
+  "Magha": ["Oils", "Sugar"],
+  "Purva Phalguni": ["Cotton", "Wool", "Gold", "Silver", "Oil", "Silver"],
+  "Uttara Phalguni": ["Rice", "Grains", "Pulses"],
+  "Hasta": ["Cotton", "Silver"],
+  "Chitra": ["Gold", "Pulses"],
+  "Swati": ["Mustard Oil", "Chillies", "Oil"],
+  "Vishakha": ["Wheat", "Rice", "Barley", "Pulses"],
+  "Anuradha": ["Rice", "Gram", "Sugar"],
+  "Jyeshtha": ["Silver", "Bronze", "Oils"],
+  "Mula": ["Wheat", "Salt", "Raw Cotton"],
+  "Purva Ashadha": ["Rice", "Cotton"],
+  "Uttara Ashadha": ["Iron", "Metals"],
+  "Shravana": ["Black Pepper", "Silver"],
+  "Dhanishta": ["Wheat", "Gold", "Gold", "Silver"],
+  "Shatabhisha": ["Oils", "Silver"],
+  "Purva Bhadrapada": ["Metals", "Gold"],
+  "Uttara Bhadrapada": ["Sugar", "Rice"],
+  "Revati": ["Precious Stones", "Betel Nuts"]
+};
+
+const DIGNITY_RULES: Record<string, DignityRule> = {
+  "Sun": { exaltation: "Aries", own: ["Leo"], debilitation: "Libra" },
+  "Moon": { exaltation: "Taurus", own: ["Cancer"], debilitation: "Scorpio" },
+  "Mars": { exaltation: "Capricorn", own: ["Aries", "Scorpio"], debilitation: "Cancer" },
+  "Mercury": { exaltation: "Virgo", own: ["Gemini", "Virgo"], debilitation: "Pisces" },
+  "Jupiter": { exaltation: "Cancer", own: ["Sagittarius", "Pisces"], debilitation: "Capricorn" },
+  "Venus": { exaltation: "Pisces", own: ["Taurus", "Libra"], debilitation: "Virgo" },
+  "Saturn": { exaltation: "Libra", own: ["Capricorn", "Aquarius"], debilitation: "Aries" },
+  "Rahu": { exaltation: "Taurus", own: ["Aquarius"], debilitation: "" },
+  "Ketu": { exaltation: "Scorpio", own: ["Scorpio"], debilitation: "" },
+  "Uranus": { exaltation: "", own: ["Aquarius"], debilitation: "" },
+  "Neptune": { exaltation: "", own: ["Pisces"], debilitation: "" },
+  "Pluto": { exaltation: "", own: ["Scorpio"], debilitation: "" }
+};
+
+interface DignityRule {
+  exaltation: string;
+  own: string[];
+  debilitation: string;
+}
+
+// Aspect Rules (Drishti)
+const PLANET_ASPECTS: Record<string, number[]> = {
+  "Mars": [4, 7, 8],
+  "Jupiter": [5, 7, 9],
+  "Saturn": [3, 7, 10],
+  "Rahu": [5, 7, 9],
+  "Ketu": [5, 7, 9],
+  "Sun": [7],
+  "Moon": [7],
+  "Mercury": [7],
+  "Venus": [7],
+  "Uranus": [7], 
+  "Neptune": [7],
+  "Pluto": [7]
+};
+
 // --- Utilities ---
 
 const PLANET_NAMES = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Uranus", "Neptune", "Pluto"];
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-const NAKSHATRAS = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni"];
+
+// Complete list of 27 Nakshatras and their Lords
+const NAKSHATRA_DATA: {name: string, lord: string}[] = [
+  { name: "Ashwini", lord: "Ketu" },
+  { name: "Bharani", lord: "Venus" },
+  { name: "Krittika", lord: "Sun" },
+  { name: "Rohini", lord: "Moon" },
+  { name: "Mrigashira", lord: "Mars" },
+  { name: "Ardra", lord: "Rahu" },
+  { name: "Punarvasu", lord: "Jupiter" },
+  { name: "Pushya", lord: "Saturn" },
+  { name: "Ashlesha", lord: "Mercury" },
+  { name: "Magha", lord: "Ketu" },
+  { name: "Purva Phalguni", lord: "Venus" },
+  { name: "Uttara Phalguni", lord: "Sun" },
+  { name: "Hasta", lord: "Moon" },
+  { name: "Chitra", lord: "Mars" },
+  { name: "Swati", lord: "Rahu" },
+  { name: "Vishakha", lord: "Jupiter" },
+  { name: "Anuradha", lord: "Saturn" },
+  { name: "Jyeshtha", lord: "Mercury" },
+  { name: "Mula", lord: "Ketu" },
+  { name: "Purva Ashadha", lord: "Venus" },
+  { name: "Uttara Ashadha", lord: "Sun" },
+  { name: "Shravana", lord: "Moon" },
+  { name: "Dhanishta", lord: "Mars" },
+  { name: "Shatabhisha", lord: "Rahu" },
+  { name: "Purva Bhadrapada", lord: "Jupiter" },
+  { name: "Uttara Bhadrapada", lord: "Saturn" },
+  { name: "Revati", lord: "Mercury" }
+];
 
 let cache: Record<string, PlanetaryResponse> = {};
+
+export const getSectorsForPlanet = (planetName: string) => PLANET_SECTORS[planetName] || [];
+export const getSectorsForSign = (signName: string) => SIGN_SECTORS[signName] || [];
+
+export const getOwnedSigns = (planet: string) => DIGNITY_RULES[planet]?.own || [];
+
+export const getAspectedSigns = (planet: string, currentSign: string): string[] => {
+    const aspects = PLANET_ASPECTS[planet] || [7];
+    const signIndex = SIGNS.indexOf(currentSign);
+    if (signIndex === -1) return [];
+    
+    return aspects.map(aspect => {
+        // -1 because if I am in 1st house and aspect 7th house, I move 6 places. (1 + 7 - 1)
+        const targetIndex = (signIndex + aspect - 1) % 12;
+        return SIGNS[targetIndex];
+    });
+};
+
+const getDignity = (planet: string, sign: string): PlanetDignity => {
+  const rule = DIGNITY_RULES[planet];
+  if (!rule) return 'n/a';
+
+  if (rule.exaltation === sign) return 'exalted';
+  if (rule.debilitation === sign) return 'debilitated';
+  if (rule.own.includes(sign)) return 'own_sign';
+  
+  return 'neutral';
+};
 
 export const fetchPlanetaryData = async (
   lat: number,
@@ -58,7 +183,6 @@ export const fetchPlanetaryData = async (
   }
 
   // Generate deterministic mock data based on inputs
-  // In a real app, this would call a swisseph library or external API
   const mockPlanets: PlanetPosition[] = PLANET_NAMES.map((name, i) => {
       // Create variation based on date string hash to make it look stable per date
       const dateHash = date.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -67,16 +191,25 @@ export const fetchPlanetaryData = async (
       const totalDegrees = (offset * 13.3) % 360;
       const signIndex = Math.floor(totalDegrees / 30);
       const degreeInSign = totalDegrees % 30;
+      const sign = SIGNS[signIndex];
+
+      // Nakshatra Calculation (approximate for mock)
+      // Each nakshatra is 13deg 20min = 13.333 degrees
+      const nakshatraIndex = Math.floor(totalDegrees / 13.333333) % 27;
+      const nakshatraInfo = NAKSHATRA_DATA[nakshatraIndex];
       
       return {
         name,
         longitude: totalDegrees,
         longitudeInSign: degreeInSign,
-        sign: SIGNS[signIndex],
+        sign: sign,
         speed: (Math.random() * 1.5) - 0.2, // Mock speed
         retrograde: ["Rahu", "Ketu"].includes(name) ? true : Math.random() > 0.8,
-        nakshatra: NAKSHATRAS[Math.floor(totalDegrees / 13.33) % NAKSHATRAS.length],
-        pada: Math.floor(Math.random() * 4) + 1
+        nakshatra: nakshatraInfo.name,
+        nakshatraLord: nakshatraInfo.lord,
+        pada: Math.floor(Math.random() * 4) + 1,
+        dignity: getDignity(name === "Herschel" ? "Uranus" : name, sign),
+        commodities: NAKSHATRA_COMMODITIES[nakshatraInfo.name] || []
       };
   });
 
@@ -85,21 +218,21 @@ export const fetchPlanetaryData = async (
     const planetSectors = PLANET_SECTORS[p.name === "Herschel" ? "Uranus" : p.name] || [];
     const signSectors = SIGN_SECTORS[p.sign] || [];
     
-    // Combine sectors (Union)
+    // Combine sectors (Union) for the Active Sector summary
     const combinedSectors = Array.from(new Set([...planetSectors, ...signSectors]));
 
-    // Calculate intensity (Mock logic: Exalted planets or slow movers get higher intensity)
+    // Calculate intensity
     let intensity = 3;
-    if (["Saturn", "Jupiter", "Rahu"].includes(p.name)) intensity += 1;
+    if (p.dignity === 'exalted' || p.dignity === 'own_sign') intensity += 1;
+    if (p.dignity === 'debilitated') intensity -= 1;
     if (p.retrograde) intensity += 1;
-    if (Math.random() > 0.8) intensity = Math.max(1, intensity - 1); // Random flux
 
     return {
       planet: p.name,
       sign: p.sign,
       degreeInSign: p.longitudeInSign,
-      focusIntensity: Math.min(5, intensity),
-      industries: combinedSectors.slice(0, 8) // Limit to top 8 for UI cleanliness
+      focusIntensity: Math.min(5, Math.max(1, intensity)),
+      industries: combinedSectors.slice(0, 8) 
     };
   }).sort((a, b) => b.focusIntensity - a.focusIntensity);
 
